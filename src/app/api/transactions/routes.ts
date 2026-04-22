@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 
 const transactionSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -26,8 +27,8 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
 
-    const where: any = { userId: session.user.id };
-    if (type) where.type = type;
+    const where: Prisma.TransactionWhereInput = { userId: session.user.id };
+    if (type === "INCOME" || type === "EXPENSE") where.type = type;
     if (category) where.category = category;
     if (search) {
       where.OR = [

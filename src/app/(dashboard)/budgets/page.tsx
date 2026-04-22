@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, X, PieChart } from "lucide-react";
 import { formatCurrency, formatMonth } from "@/lib/utils";
 import { TRANSACTION_CATEGORIES, MONTHS } from "@/lib/constants";
@@ -30,17 +30,29 @@ export default function BudgetsPage() {
     year: now.getFullYear(),
   });
 
-  async function fetchBudgets() {
-    setLoading(true);
-    const res = await fetch(`/api/budgets?month=${month}&year=${year}`);
-    const data = await res.json();
-    setBudgets(Array.isArray(data) ? data : []);
-    setLoading(false);
-  }
+  const fetchBudgets = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(`/api/budgets?month=${month}&year=${year}`, { signal });
+      const data = await res.json();
+      setBudgets(Array.isArray(data) ? data : []);
+    } catch {
+      if (!signal?.aborted) setBudgets([]);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [month, year]);
 
   useEffect(() => {
-    fetchBudgets();
-  }, [month, year]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      void fetchBudgets(controller.signal);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [fetchBudgets]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +81,7 @@ export default function BudgetsPage() {
           month: now.getMonth() + 1,
           year: now.getFullYear(),
         });
+        setLoading(true);
         fetchBudgets();
       }
     } catch {
@@ -82,6 +95,7 @@ export default function BudgetsPage() {
     setDeletingId(id);
     try {
       await fetch(`/api/budgets?id=${id}`, { method: "DELETE" });
+      setLoading(true);
       fetchBudgets();
     } finally {
       setDeletingId(null);
@@ -130,7 +144,10 @@ export default function BudgetsPage() {
       <div className="flex items-center gap-3">
         <select
           value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
+          onChange={(e) => {
+            setLoading(true);
+            setMonth(Number(e.target.value));
+          }}
           className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:border-[#E8192C] focus:ring-4 focus:ring-red-50 outline-none transition-all bg-white"
         >
           {MONTHS.map((m, i) => (
@@ -141,7 +158,10 @@ export default function BudgetsPage() {
         </select>
         <select
           value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
+          onChange={(e) => {
+            setLoading(true);
+            setYear(Number(e.target.value));
+          }}
           className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:border-[#E8192C] focus:ring-4 focus:ring-red-50 outline-none transition-all bg-white"
         >
           {years.map((y) => (

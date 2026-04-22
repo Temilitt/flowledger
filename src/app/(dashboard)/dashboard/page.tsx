@@ -206,9 +206,7 @@ export default function DashboardPage() {
                     boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                     fontSize: "13px",
                   }}
-                  formatter={(value: number) =>
-                    formatCurrency(value, currency)
-                  }
+                  formatter={(value) => formatCurrency(Number(value), currency)}
                 />
                 <Area
                   type="monotone"
@@ -264,12 +262,12 @@ export default function DashboardPage() {
                           i === 0
                             ? "#E8192C"
                             : i === 1
-                            ? "#f97316"
-                            : i === 2
-                            ? "#eab308"
-                            : i === 3
-                            ? "#3b82f6"
-                            : "#8b5cf6",
+                              ? "#f97316"
+                              : i === 2
+                                ? "#eab308"
+                                : i === 3
+                                  ? "#3b82f6"
+                                  : "#8b5cf6",
                       }}
                     />
                   </div>
@@ -357,11 +355,10 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        tx.type === "INCOME"
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === "INCOME"
                           ? "bg-green-50"
                           : "bg-red-50"
-                      }`}
+                        }`}
                     >
                       {tx.type === "INCOME" ? (
                         <ArrowUpRight className="w-4 h-4 text-green-500" />
@@ -377,11 +374,10 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <span
-                    className={`text-sm font-semibold ${
-                      tx.type === "INCOME"
+                    className={`text-sm font-semibold ${tx.type === "INCOME"
                         ? "text-green-600"
                         : "text-[#E8192C]"
-                    }`}
+                      }`}
                   >
                     {tx.type === "INCOME" ? "+" : "-"}
                     {formatCurrency(tx.amount, currency)}

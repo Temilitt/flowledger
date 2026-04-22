@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 
-export async function middleware(request: NextRequest) {
-  const session = await auth();
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isLoggedIn = !!session?.user;
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
 
-  const isAuthRoute =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isLoggedIn = !!token;
+
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
 
   const isDashboardRoute =
     pathname.startsWith("/dashboard") ||

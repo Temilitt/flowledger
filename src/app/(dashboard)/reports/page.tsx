@@ -224,7 +224,9 @@ export default function ReportsPage() {
                   border: "1px solid #f3f4f6",
                   fontSize: "13px",
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value) =>
+                  formatCurrency(Number.isFinite(Number(value)) ? Number(value) : 0)
+                }
               />
               <Line
                 type="monotone"
@@ -285,7 +287,9 @@ export default function ReportsPage() {
                   border: "1px solid #f3f4f6",
                   fontSize: "13px",
                 }}
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value) =>
+                  formatCurrency(Number.isFinite(Number(value)) ? Number(value) : 0)
+                }
               />
               <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} />
               <Bar dataKey="expense" fill="#E8192C" radius={[4, 4, 0, 0]} />

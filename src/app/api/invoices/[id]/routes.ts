@@ -1,59 +1,53 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { generateInvoiceNumber } from "@/lib/utils";
 
-const invoiceItemSchema = z.object({
-  id: z.string(),
-  description: z.string().min(1),
-  quantity: z.number().positive(),
-  rate: z.number().positive(),
-  amount: z.number(),
+const patchSchema = z.object({
+  status: z.enum(["PENDING", "PAID", "OVERDUE", "CANCELLED"]),
 });
 
-const invoiceSchema = z.object({
-  clientName: z.string().min(1, "Client name is required"),
-  clientEmail: z.string().email("Invalid email"),
-  items: z.array(invoiceItemSchema).min(1, "At least one item is required"),
-  subtotal: z.number(),
-  tax: z.number().min(0),
-  total: z.number(),
-  dueDate: z.string().min(1, "Due date is required"),
-  note: z.string().optional(),
-});
-
-export async function GET() {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const invoices = await db.invoice.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    });
+    const { id } = await params;
 
-    return NextResponse.json(invoices);
+    const invoice = await db.invoice.findUnique({ where: { id } });
+    if (!invoice || invoice.userId !== session.user.id) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(invoice);
   } catch (error) {
-    console.error("Invoices GET error:", error);
+    console.error("Invoice GET error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch invoices" },
+      { error: "Failed to fetch invoice" },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const body = await request.json();
-    const parsed = invoiceSchema.safeParse(body);
+    const parsed = patchSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -62,20 +56,49 @@ export async function POST(request: Request) {
       );
     }
 
-    const invoice = await db.invoice.create({
-      data: {
-        ...parsed.data,
-        invoiceNo: generateInvoiceNumber(),
-        dueDate: new Date(parsed.data.dueDate),
-        userId: session.user.id,
-      },
+    const invoice = await db.invoice.findUnique({ where: { id } });
+    if (!invoice || invoice.userId !== session.user.id) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    const updated = await db.invoice.update({
+      where: { id },
+      data: { status: parsed.data.status },
     });
 
-    return NextResponse.json(invoice, { status: 201 });
+    return NextResponse.json(updated);
   } catch (error) {
-    console.error("Invoices POST error:", error);
+    console.error("Invoice PATCH error:", error);
     return NextResponse.json(
-      { error: "Failed to create invoice" },
+      { error: "Failed to update invoice" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const invoice = await db.invoice.findUnique({ where: { id } });
+    if (!invoice || invoice.userId !== session.user.id) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    await db.invoice.delete({ where: { id } });
+    return NextResponse.json({ message: "Invoice deleted" });
+  } catch (error) {
+    console.error("Invoice DELETE error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete invoice" },
       { status: 500 }
     );
   }

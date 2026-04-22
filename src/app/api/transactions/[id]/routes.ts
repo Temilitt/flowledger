@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
@@ -13,14 +13,16 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { id } = await params;
 
     const body = await request.json();
     const parsed = updateSchema.safeParse(body);
@@ -33,7 +35,7 @@ export async function PATCH(
     }
 
     const transaction = await db.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!transaction || transaction.userId !== session.user.id) {
@@ -44,7 +46,7 @@ export async function PATCH(
     }
 
     const updated = await db.transaction.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...parsed.data,
         ...(parsed.data.date && { date: new Date(parsed.data.date) }),
@@ -62,8 +64,8 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -71,8 +73,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     const transaction = await db.transaction.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!transaction || transaction.userId !== session.user.id) {
@@ -82,7 +86,7 @@ export async function DELETE(
       );
     }
 
-    await db.transaction.delete({ where: { id: params.id } });
+    await db.transaction.delete({ where: { id } });
 
     return NextResponse.json({ message: "Transaction deleted" });
   } catch (error) {

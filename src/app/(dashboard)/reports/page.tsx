@@ -11,7 +11,6 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  Legend,
 } from "recharts";
 import {
   TrendingUp,
@@ -62,16 +61,28 @@ export default function ReportsPage() {
     now.getFullYear(),
   ];
 
-  async function fetchReport() {
-    setLoading(true);
-    const res = await fetch(`/api/reports?year=${year}`);
-    const json = await res.json();
-    setData(json);
-    setLoading(false);
-  }
-
   useEffect(() => {
-    fetchReport();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/reports?year=${year}`, {
+            signal: controller.signal,
+          });
+          const json = await res.json();
+          if (!controller.signal.aborted) setData(json);
+        } catch {
+          if (!controller.signal.aborted) setData(null);
+        } finally {
+          if (!controller.signal.aborted) setLoading(false);
+        }
+      })();
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [year]);
 
   function exportCSV() {
@@ -122,7 +133,10 @@ export default function ReportsPage() {
         <div className="flex items-center gap-3">
           <select
             value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
+            onChange={(e) => {
+              setLoading(true);
+              setYear(Number(e.target.value));
+            }}
             className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:border-[#E8192C] focus:ring-4 focus:ring-red-50 outline-none transition-all bg-white"
           >
             {years.map((y) => (

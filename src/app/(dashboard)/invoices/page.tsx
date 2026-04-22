@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -10,7 +10,7 @@ import {
   Download,
   CheckCircle,
 } from "lucide-react";
-import { formatCurrency, formatDate, generateInvoiceNumber } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { TAX_RATES } from "@/lib/constants";
 import type { Invoice, InvoiceItem } from "@/types";
 
@@ -48,17 +48,29 @@ export default function InvoicesPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState(emptyForm);
 
-  async function fetchInvoices() {
-    setLoading(true);
-    const res = await fetch("/api/invoices");
-    const data = await res.json();
-    setInvoices(Array.isArray(data) ? data : []);
-    setLoading(false);
-  }
+  const fetchInvoices = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/invoices", { signal });
+      const data = await res.json();
+      setInvoices(Array.isArray(data) ? data : []);
+    } catch {
+      if (!signal?.aborted) setInvoices([]);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      void fetchInvoices(controller.signal);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [fetchInvoices]);
 
   function updateItem(id: string, field: keyof InvoiceItem, value: string | number) {
     setForm((prev) => ({
@@ -110,7 +122,8 @@ export default function InvoicesPage() {
       } else {
         setShowModal(false);
         setForm(emptyForm);
-        fetchInvoices();
+        setLoading(true);
+        void fetchInvoices();
       }
     } catch {
       setError("Something went wrong.");
@@ -127,7 +140,8 @@ export default function InvoicesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      fetchInvoices();
+      setLoading(true);
+      void fetchInvoices();
     } finally {
       setUpdatingId(null);
     }
@@ -137,7 +151,8 @@ export default function InvoicesPage() {
     setDeletingId(id);
     try {
       await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-      fetchInvoices();
+      setLoading(true);
+      void fetchInvoices();
     } finally {
       setDeletingId(null);
     }
